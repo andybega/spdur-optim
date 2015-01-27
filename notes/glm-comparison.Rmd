@@ -1,0 +1,53 @@
+---
+title: "Speeding up spdur"
+author: "Andreas Beger"
+date: "January 21, 2015"
+output: html_document
+---
+
+The old ICEWS `spdur()` function is wrapped in a seperate R package, `spduration`, with a couple of methods and that's all really nice. One problem that remains is performance. 
+
+Compared with `glm()`, `spdur()` is orders of magnitude slower:
+
+```{r, include=FALSE}
+library(microbenchmark)
+library(spduration)
+load("irc-data-mod.rda")
+```
+
+```{r}
+mdl1_spdur <- function() { 
+  spduration::spdur(duration ~ 1 + log10(i.matl.conf.DIStGOV.l1+1) + 
+  	log10(i.matl.coop.GOVtGOV.l1+1),
+	  atrisk ~ 1 + ldr.irregular + ldr.foreign + log10(mths.in.power+1),
+	  data=irc.data, silent=TRUE) 
+}
+
+mdl1_glm <- function() {
+  glm(failure ~ log10(i.matl.conf.DIStGOV.l1+1) + 
+    log10(i.matl.coop.GOVtGOV.l1+1) + ldr.irregular + ldr.foreign + 
+    log10(mths.in.power+1) + duration + I(duration^2) + I(duration^3),
+	  data=irc.data, family="binomial")
+}
+```
+
+
+```{r, cache=TRUE}
+res <- microbenchmark(mdl1_spdur(), mdl1_glm(), times=50, unit="s")
+res
+```
+
+This is mildly annoying when you do interactive modeling, but it also makes cross-validation borderline impractical, as well as anything else where you would want to run 100's of split-duration models. 
+
+Part of the performance drop is probably because the underlying equations are just a bit more extensive than what you need for a logistic model, but my hunch is that a big portion is also because `spdur` currently is solely implemented in R code, without really much attention to optimizing code or moving bottlenecks to some other language (`Rcpp`?).
+
+So, the overall goal would be to speed up `spdur()`. 
+
+If I had to do this, which I am not in any qualified to, I'd do profiling first to identify where the bottlenecks are (I'm guessing the likelihood calculation and later on solving the Hessian) and then try to move them to `Rcpp`. 
+
+```{r, echo=FALSE}
+library(ggplot2)
+
+autoplot(res)
+```
+
