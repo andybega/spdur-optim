@@ -1,8 +1,9 @@
+################################################################
 # Optimizing splolog in rcpp
-
 if(Sys.info()['user']=='janus829' | Sys.info()['user']=='s7m'){
   setwd("~/Research/WardProjects/spduration-optim/ilc-example")}
 
+# Load libraries
 loadPkg=function(toLoad){
   for(lib in toLoad){
   if(! lib %in% installed.packages()[,1])
@@ -10,59 +11,87 @@ loadPkg=function(toLoad){
   suppressMessages( library(lib, character.only=TRUE) ) }
 }
 
-# Load libraries
-packs=c("corpcor", 'lineprof', 'microbenchmark')
+packs=c("corpcor", 'microbenchmark', 'Rcpp', 'RcppArmadillo')
 loadPkg(packs)
 
 # Load core estimation functions
-core_funcs <- list.files("../core-functions", pattern="*.R")
+core_funcs = list.files("../core-functions", pattern="*.R")
 for(func in core_funcs){source(paste0('../core-functions/', func))}
-
-# Load example data
-load("irc-data-mod.rda")
-
-# Theme 1 with all data
-model1 <- function() {
-  spdur(duration ~ 1 + log10(i.matl.conf.DIStGOV.l1+1) + 
-          log10(i.matl.coop.GOVtGOV.l1+1),
-        atrisk ~ 1 + ldr.irregular + ldr.foreign + log10(mths.in.power+1),
-        data=irc.data, silent=TRUE)
-}
-
-# Run time; use times>1 to eliminate overhead variance
-# microbenchmark(model1(), times=1, unit="s")
-
-# # Line by line profiling; might give different results each run
-# m1_l1 <- lineprof({
-#   spdur(duration ~ 1 + log10(i.matl.conf.DIStGOV.l1+1) + 
-#           log10(i.matl.coop.GOVtGOV.l1+1),
-#         atrisk ~ 1 + ldr.irregular + ldr.foreign + log10(mths.in.power+1),
-#         data=irc.data, silent=TRUE)
-# }, interval=0.1)
-
-# shine(m1_l1)
-
 
 # Look only at likelihood calculation
 # (Y, X, Z saved from debugging spdur)
 load("XYZ-matrices.rda")
-
-# weib_lnl
-# spweib_lnl
-
 set.seed(6886)
 theta <- rnorm(ncol(X) + ncol(Z) + 1)
-# spweib_l1 <- lineprof(spweib_lnl(theta, Y, X, Z), torture=T)
+################################################################
 
-# Testing out stuff
-library(Rcpp)
-library(RcppArmadillo)
-library(rbenchmark)
-
+################################################################
+# Make sure cpp versions return same result
 sourceCpp("../core-functions/loglog_lnlC.cpp")
-
 loglog_lnlCpp(theta, Y, X); loglog_lnl(theta, Y, X)
 
 sourceCpp("../core-functions/sploglog_lnlC.cpp")
-
 sploglog_lnlCpp(theta, Y, X, Z); sploglog_lnl(theta, Y, X, Z)
+################################################################
+
+################################################################
+# Speed comparison
+# First we pass cpp likelihood into existing functions from sploglog.R
+#' Regular Log-logistic regression
+loglogCpp <- function(Y, X, inits=NULL, max.iter, silent=TRUE) {
+  if (is.null(inits)) {
+    inits <- c(rep(0, ncol(X)), 0)
+  }
+  
+  trace <- !silent
+  est <- optim(inits, loglog_lnlCpp, method="BFGS", 
+               control=list(trace=trace, maxit=max.iter), 
+               hessian=T, y=Y, X=X)
+  
+  # Solve other results
+  if (est$convergence!=0 & !silent) stop('Model did not converge')
+  coef <- est$par
+  vcv <- solve(est$hessian)
+  vcv <- make.positive.definite(vcv)
+  logL <- -est$value
+  
+  # Put together results
+  return(list(coefficients = coef, vcv = vcv, logL = logL))
+}
+
+# Split Population
+sploglogCpp <- function(Y, X, Z, max.iter, silent=FALSE) {
+  # Estimate base model
+  if (!exists("base.inits")) {
+    base.inits <- c(rep(0, ncol(X)), 1)
+  }
+  if (!silent) cat('Fitting base loglog...\n')
+  base <- loglog(Y=Y, X=X, inits=base.inits, max.iter=200, silent=TRUE)
+    
+  # Estimate full model
+  x.inits <- base$coefficients[1:ncol(X)]
+  a.init <- base$coefficients[ncol(X)+1]
+  if (!silent) cat('Fitting split loglog...\n')
+  trace <- !silent
+  est <- optim(c(x.inits, rep(0, ncol(Z)), a.init), sploglog_lnlCpp, method="BFGS", 
+    control=list(trace=trace, maxit=max.iter), hessian=T, y=Y, X=X, Z=Z)
+  
+  # Solve other results
+  if (est$convergence!=0 & !silent) stop('Model did not converge')
+  coef <- est$par
+  vcv <- solve(est$hessian)
+  vcv <- make.positive.definite(vcv)
+  logL <- -est$value
+  
+  # Put together results
+  return(list(coefficients = coef, vcv = vcv, logL = logL, base=base))
+}
+
+times=microbenchmark(
+  loglog(Y, X, max.iter=200, silent=TRUE),
+  loglogCpp(Y, X, max.iter=200, silent=TRUE),
+  sploglog(Y, X, Z, max.iter=200, silent=TRUE),
+  sploglogCpp(Y, X, Z, max.iter=200, silent=TRUE), 
+  times=100, unit="s")
+save(times, file='loglogTimes.rda')
+################################################################
