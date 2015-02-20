@@ -61,4 +61,8 @@ library(rbenchmark)
 
 sourceCpp("../core-functions/loglog_lnlC.cpp")
 
-test=loglog_lnlCpp(theta, Y, X)
+loglog_lnlCpp(theta, Y, X); loglog_lnl(theta, Y, X)
+
+sourceCpp("../core-functions/sploglog_lnlC.cpp")
+
+sploglog_lnlCpp(theta, Y, X, Z); sploglog_lnl(theta, Y, X, Z)
