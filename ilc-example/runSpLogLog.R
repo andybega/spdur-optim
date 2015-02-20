@@ -62,30 +62,3 @@ library(rbenchmark)
 sourceCpp("../core-functions/loglog_lnlC.cpp")
 
 test=loglog_lnlCpp(theta, Y, X)
-# sum(exp(-X %*% theta[1:ncol(X)]) == test)/length(test)
-
-
-#' Regular Log-logistic likelihood
-theta=theta; y=Y; X=X
-# loglog_lnl <- function(theta, y, X) {
-  beta <- theta[1:ncol(X)]
-  g <- theta[ncol(X) + 1]
-  d <- y[,1]
-  ti <- y[,2]
-  t0 <- y[,4]
-  ly <- y[,3]
-  lambda <- exp(-X%*%beta)
-  alpha <- exp(-g)
-  # ln.ft <- log(alpha) + alpha*log(lambda) + (alpha-1)*log(ti) -2 * log(1+(lambda*ti)^alpha)
-  ln.ft <- (lambda*ti)^alpha
- 
-head(cbind(test, ln.ft))
-sum(test==ln.ft)/length(test)
-
-#   ln.st  <- -log((1+(lambda*ti)^alpha))
-#   ln.st0 <- -log((1+(lambda*t0)^alpha))
-#   cens <- ifelse((d==1) & (ly==0) | (d==0) , ln.st - ln.st0 , 0)
-#   nocens <- ifelse((d==1) & (ly==1) , ln.ft - ln.st0 , 0)
-#   logl <- sum(cens+nocens)
-#   return(-logl)
-# }
