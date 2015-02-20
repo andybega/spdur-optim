@@ -11,7 +11,7 @@ loadPkg=function(toLoad){
   suppressMessages( library(lib, character.only=TRUE) ) }
 }
 
-packs=c("corpcor", 'microbenchmark', 'Rcpp', 'RcppArmadillo')
+packs=c("corpcor", 'microbenchmark', 'Rcpp', 'RcppArmadillo', 'ggplot2')
 loadPkg(packs)
 
 # Load core estimation functions
@@ -87,11 +87,16 @@ sploglogCpp <- function(Y, X, Z, max.iter, silent=FALSE) {
   return(list(coefficients = coef, vcv = vcv, logL = logL, base=base))
 }
 
-times=microbenchmark(
-  loglog(Y, X, max.iter=200, silent=TRUE),
-  loglogCpp(Y, X, max.iter=200, silent=TRUE),
-  sploglog(Y, X, Z, max.iter=200, silent=TRUE),
-  sploglogCpp(Y, X, Z, max.iter=200, silent=TRUE), 
-  times=100, unit="s")
-save(times, file='loglogTimes.rda')
+if(!'loglogTimes.rda' %in% list.files()){
+  times=microbenchmark(
+    loglog(Y, X, max.iter=200, silent=TRUE),
+    loglogCpp(Y, X, max.iter=200, silent=TRUE),
+    sploglog(Y, X, Z, max.iter=200, silent=TRUE),
+    sploglogCpp(Y, X, Z, max.iter=200, silent=TRUE), 
+    times=100, unit="s")
+  save(times, file='loglogTimes.rda')
+}
+
+if(!'times' %in% ls()){ load('loglogTimes.rda') }
+print(times)
 ################################################################
