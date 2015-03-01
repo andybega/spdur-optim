@@ -1,5 +1,5 @@
 ################################################################
-# Optimizing splolog in rcpp
+# Optimizing spweibull in rcpp
 if(Sys.info()['user']=='janus829' | Sys.info()['user']=='s7m'){
   setwd("~/Research/WardProjects/spduration-optim/ilc-example")}
 
