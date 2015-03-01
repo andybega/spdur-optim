@@ -17,7 +17,7 @@ double weib_lnlCpp(vec theta, mat y, mat X) {
   vec lo = y.submat(0,2,y.n_rows-1,2); 
   vec t0 = y.submat(0,3,y.n_rows-1,3); 
 
-  vec lnFt = log(alpha) + alpha*log(lambda) + (alpha-1)*log(ti) - log(ti) - pow(lambda % ti, alpha);
+  vec lnFt = log(alpha) + alpha*log(lambda) + (alpha-1)*log(ti) - pow(lambda % ti, alpha);
   vec lnSt = -pow(lambda % ti, alpha);
   vec lnSt0 = -pow(lambda % t0, alpha);
 
@@ -33,7 +33,7 @@ double weib_lnlCpp(vec theta, mat y, mat X) {
   vec nocens(lambda.size());
   for(int i=0; i<nocens.size(); ++i) {
   	if ( rc[i]==1 & lo[i]==1 ) {
-  		nocens[i] = lnSt[i] - lnSt0[i];
+  		nocens[i] = lnFt[i] - lnSt0[i];
   	} else {
   		nocens[i] = 0;
   	}
