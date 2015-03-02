@@ -48,6 +48,15 @@ mdl1Glm = function() {
     data=irc.data, family="binomial")
 }
 
+# Check to make sure results between the two are equivalent
+spdurRes=mdl1Spdur()
+spdurcppRes=mdl1SpdurCpp()
+cbind(spdurRes$'coefficients', spdurRes$'se')
+cbind(spdurcppRes$'coefficients', spdurcppRes$'se')
+################################################################
+
+################################################################
+# Time trials
 if(!'spdurTimes.rda' %in% list.files()){
   times = microbenchmark(
     mdl1Spdur(), mdl1SpdurCpp(), mdl1Glm(), 
